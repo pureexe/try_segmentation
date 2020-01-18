@@ -7,12 +7,12 @@ import pydensecrf.densecrf as dcrf
 
 # File I/O
 INPUT_PATH = 'D:/Datasets/penguinguy/%03d%03d.png'
-OUTPUT_PATH = "output/penguinguy_crf"
+OUTPUT_PATH = "output/penguinguy_crf_8"
 
 # Arch Camera Configurlation
 TOTAL_CAMERA = 10
 TOTAL_IMAGE_PER_CAMERA = 40
-THRESHOLD_RATIO = 0.10 # Difference betweem image [0 - 1]
+THRESHOLD_RATIO = 0.05 # Difference betweem image [0 - 1]
 
 # Rotate
 USE_ROTATE_TO_IMAGE = True
@@ -22,7 +22,7 @@ ROTATE_DIRECTION = cv2.ROTATE_90_CLOCKWISE
 USE_REMOVE_PEPPER_NOISE = True
 OPENNING_KERNEL_SIZE = (5,5)
 
-THRESHOLD_STRENG = 35
+THRESHOLD_STRENG = 20
 THRESHOLD_USE_TRIANGLE = False
 
 USE_CLOSING_FOREGROUND = True
@@ -79,7 +79,6 @@ def processed_camera(CAMERA_NUMBER):
     foreground_prob = get_diff_mask(CAMERA_NUMBER,0)
     for i in range(1,40):
         foreground_prob = cv2.bitwise_or(foreground_prob,get_diff_mask(CAMERA_NUMBER,i))
-
     if USE_CLOSING_FOREGROUND:
         kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,CLOSING_KERNEL)
         mask_closed = cv2.morphologyEx(foreground_prob, cv2.MORPH_CLOSE, kernel)
@@ -97,15 +96,18 @@ def processed_camera(CAMERA_NUMBER):
     image_flooded = (mask_closed.copy() * 255.0).astype(np.uint8)
     image_height, image_width = image_flooded.shape[:2]
     flood_mask = np.zeros((image_height+2,image_width+2),dtype=np.uint8)
+    has_flooded = False
     # top bar
     if min_y != 0:
         for i in range(image_flooded.shape[1]):
             if image_flooded[0,i] != 255:
+                has_flooded = True
                 cv2.floodFill(image_flooded, flood_mask, (i,0), 255)
     # left bar
     if min_x != 0:
         for i in range(image_flooded.shape[0]):
             if image_flooded[i,0] != 255:
+                has_flooded = True
                 cv2.floodFill(image_flooded, flood_mask, (0,i), 255)
 
     # right bar
@@ -113,6 +115,7 @@ def processed_camera(CAMERA_NUMBER):
     if max_x != most_right:
         for i in range(image_flooded.shape[0]):
             if image_flooded[i,most_right] != 255:
+                has_flooded = True
                 cv2.floodFill(image_flooded, flood_mask, (most_right,i), 255)
 
     # bottom bar 
@@ -120,10 +123,14 @@ def processed_camera(CAMERA_NUMBER):
     if max_y != most_bottom:
         for i in range(image_flooded.shape[1]):
             if image_flooded[most_bottom,i] != 255:
+                has_flooded = True
                 cv2.floodFill(image_flooded, flood_mask, (i,most_bottom), 255)
 
     # we get background from floodfill
-    background_mask = flood_mask[1:-1,1:-1]
+    if has_flooded:
+        background_mask = flood_mask[1:-1,1:-1]
+    else:
+        background_mask = 1 - mask_closed
     is_background = background_mask == 1
 
     # backgroud mm model 
@@ -150,7 +157,7 @@ def processed_camera(CAMERA_NUMBER):
         if THRESHOLD_USE_TRIANGLE:
             ret2,object_threshold = cv2.threshold(image_gray,200,255,cv2.THRESH_TRIANGLE)
         else:
-            ret2,object_threshold = cv2.threshold(image_gray,35,255,cv2.THRESH_BINARY)        
+            ret2,object_threshold = cv2.threshold(image_gray,THRESHOLD_STRENG,255,cv2.THRESH_BINARY)        
 
         if USE_DENOISE_FOREGROUND_MASK:
             kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE,FOREGROUND_OPENNING_KERNEL_SIZE)
@@ -251,6 +258,7 @@ if __name__ == '__main__':
     if not os.path.exists(OUTPUT_PATH):
         os.mkdir(OUTPUT_PATH)
     #params = list(range(TOTAL_CAMERA))
-    params = [6,8,9]
-    pool = Pool(MP_POOL_SIZE)  
-    pool.map(processed_camera, params)  
+    #params = [6,8,9]
+    #pool = Pool(MP_POOL_SIZE)  
+    #pool.map(processed_camera, params)  
+    processed_camera(8)
