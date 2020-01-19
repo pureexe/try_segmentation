@@ -24,7 +24,7 @@ for camera_number in range(TOTAL_CAMERA):
         image_ext = image.split('.')[-1]
         image_id = int(image[3:6])
         source_image = os.path.join(SOURCE_DIR,image)
-        destination_image = os.path.join(camera_dir,"cam{:03d}_{:03d}.{}".format(camera_number,image_id,image_ext))
+        destination_image = os.path.join(camera_dir,"cam{:03d}_{:05d}.{}".format(camera_number,image_id,image_ext))
         if REQUIRE_ROTATION:
             data = cv2.imread(source_image)
             data = cv2.rotate(data,ROTATE_DIRECTION)
